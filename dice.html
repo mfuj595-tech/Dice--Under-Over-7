@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dice 1x Style</title>
+
+<style>
+:root{
+  --bg:#0b0f1a;
+  --panel:#141a2e;
+  --gold:#f5c56b;
+  --green:#35ff6b;
+}
+body{
+  margin:0;
+  background:radial-gradient(circle at top,#1b2342,var(--bg));
+  font-family:Segoe UI,Arial;
+  color:#fff;
+  text-align:center;
+}
+.glass{
+  background:rgba(20,26,46,.75);
+  backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.08);
+}
+.top{
+  padding:14px;
+}
+.balance{
+  display:inline-block;
+  padding:8px 20px;
+  border-radius:30px;
+  font-weight:600;
+}
+.balance span{color:var(--green);}
+
+.title{opacity:.85;margin:16px 0;}
+
+.dice-wrap{
+  display:flex;
+  justify-content:center;
+  gap:26px;
+}
+.dice{
+  width:120px;height:120px;
+  border-radius:50%;
+  border:5px solid var(--gold);
+  background:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.dice img{width:70px;}
+
+@keyframes roll{to{transform:rotate(360deg)}}
+.roll{animation:roll .45s linear infinite}
+
+.odds{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin-top:18px;
+}
+.odds button{
+  width:100px;
+  padding:10px;
+  border-radius:12px;
+  background:var(--panel);
+  border:2px solid #2a335c;
+  color:#fff;
+  transition:.2s;
+}
+.odds button.active{
+  border-color:var(--gold);
+  box-shadow:0 0 15px rgba(245,197,107,.8);
+}
+
+.ctrl{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin:14px 0;
+}
+.ctrl button{
+  background:linear-gradient(#f5d78f,#b9964d);
+  border:none;
+  border-radius:8px;
+  padding:8px 14px;
+  font-weight:700;
+}
+
+.bet{
+  display:inline-block;
+  padding:10px 34px;
+  border-radius:12px;
+  border:1px solid var(--gold);
+}
+
+.bottom{
+  display:flex;
+  justify-content:center;
+  gap:26px;
+  margin-top:6px;
+}
+.play{
+  width:84px;height:84px;
+  border-radius:50%;
+  background:radial-gradient(circle,#45ff7a,#1c8f45);
+  font-size:30px;
+  border:none;
+  box-shadow:0 0 18px rgba(53,255,107,.8);
+}
+.icon{
+  width:60px;height:60px;
+  border-radius:14px;
+  font-size:26px;
+}
+
+.popup{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+.box{
+  padding:26px 40px;
+  border-radius:16px;
+  border:2px solid var(--gold);
+  background:var(--panel);
+  animation:pop .25s ease;
+}
+@keyframes pop{from{scale:.6;opacity:0}to{scale:1;opacity:1}}
+.win{color:var(--green)}
+.lose{color:#ff4c4c}
+</style>
+</head>
+
+<body>
+
+<div class="top">
+  <div class="balance glass">Balance: <span id="bal">10000</span> ৳</div>
+</div>
+
+<div class="title">Select your odds</div>
+
+<div class="dice-wrap">
+  <div class="dice"><img id="d1"></div>
+  <div class="dice"><img id="d2"></div>
+</div>
+
+<div class="odds">
+  <button id="under" onclick="pick('under')">Under 7<br>x2.3</button>
+  <button id="equal" onclick="pick('equal')">Equal 7<br>x5.8</button>
+  <button id="over" onclick="pick('over')">Over 7<br>x2.3</button>
+</div>
+
+<div class="ctrl">
+  <button onclick="bet=20;ui()">MIN</button>
+  <button onclick="bet=Math.min(200,bet*2);ui()">X2</button>
+  <button onclick="bet=Math.max(20,bet/2|0);ui()">X/2</button>
+  <button onclick="bet=200;ui()">MAX</button>
+</div>
+
+<div class="bet glass">Bet: <span id="bet">20</span> BDT</div>
+
+<div class="bottom">
+  <button class="icon glass">💰</button>
+  <button class="play" onclick="play()">▶</button>
+  <button class="icon glass">🔄</button>
+</div>
+
+<div class="popup" id="pop">
+  <div class="box" id="msg"></div>
+</div>
+
+<audio id="snd">
+  <source src="https://assets.mixkit.co/sfx/preview/mixkit-dice-roll-2003.mp3">
+</audio>
+
+<script>
+const imgs=[
+ "https://upload.wikimedia.org/wikipedia/commons/1/1b/Dice-1-b.svg",
+ "https://upload.wikimedia.org/wikipedia/commons/5/5f/Dice-2-b.svg",
+ "https://upload.wikimedia.org/wikipedia/commons/b/b1/Dice-3-b.svg",
+ "https://upload.wikimedia.org/wikipedia/commons/f/fd/Dice-4-b.svg",
+ "https://upload.wikimedia.org/wikipedia/commons/0/08/Dice-5-b.svg",
+ "https://upload.wikimedia.org/wikipedia/commons/2/26/Dice-6-b.svg"
+];
+
+let balance = +localStorage.getItem("bal") || 10000;
+let bet = 20;
+let choice = null;
+let streak = 0;
+
+const d1=document.getElementById("d1"),
+      d2=document.getElementById("d2");
+
+d1.src=d2.src=imgs[0];
+
+function ui(){
+  if(balance<=0){balance=10000}
+  localStorage.setItem("bal",balance);
+  bal.innerText=balance;
+  document.getElementById("bet").innerText=bet;
+}
+function pick(c){
+  choice=c;
+  document.querySelectorAll(".odds button").forEach(b=>b.classList.remove("active"));
+  document.getElementById(c).classList.add("active");
+}
+
+/* 🎯 House edge logic */
+function riggedDice(){
+  let loseBias = 0.55 + Math.min(streak*0.05,0.2); // win করলে bias বাড়ে
+  if(Math.random()<loseBias){
+    if(choice==="equal") return [1,1];
+    if(choice==="under") return [6,6];
+    if(choice==="over") return [1,1];
+  }
+  let a=Math.random()*6|0,b=Math.random()*6|0;
+  return [a+1,b+1];
+}
+
+function play(){
+  if(!choice || balance<bet) return;
+
+  snd.currentTime=0; snd.play();
+  d1.parentElement.classList.add("roll");
+  d2.parentElement.classList.add("roll");
+
+  setTimeout(()=>{
+    d1.parentElement.classList.remove("roll");
+    d2.parentElement.classList.remove("roll");
+
+    let [a,b]=riggedDice();
+    d1.src=imgs[a-1]; d2.src=imgs[b-1];
+    let t=a+b;
+
+    balance-=bet;
+    let win=false,m=0;
+    if(choice==="under"&&t<7){win=1;m=2.3}
+    if(choice==="equal"&&t===7){win=1;m=5.8}
+    if(choice==="over"&&t>7){win=1;m=2.3}
+
+    if(win){
+      balance+=Math.floor(bet*m);
+      streak++;
+    }else streak=0;
+
+    msg.innerHTML= win ? `<div class="win">YOU WIN<br>+${Math.floor(bet*m)} ৳</div>`
+                       : `<div class="lose">YOU LOSE</div>`;
+    pop.style.display="flex";
+    setTimeout(()=>pop.style.display="none",1300);
+    ui();
+  },900);
+}
+ui();
+</script>
+
+</body>
+</html>
